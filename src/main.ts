@@ -11,15 +11,34 @@ async function verifyS3Storage(app: any) {
   const logger = new Logger('S3Storage');
   try {
     const configService = app.get(ConfigService);
-    const s3Client = new S3Client({
+    
+    // 1. Preparamos la configuración base
+    const s3Options: any = {
       region: configService.get('s3.region'),
-      endpoint: configService.get('s3.endpoint'),
       forcePathStyle: configService.get('s3.forcePathStyle'),
-      credentials: {
-        accessKeyId: configService.get('s3.accessKeyId'),
-        secretAccessKey: configService.get('s3.secretAccessKey'),
-      },
-    });
+    };
+
+    // 2. Si hay un endpoint (ej. localhost:9000 para MinIO), lo agregamos
+    const endpoint = configService.get('s3.endpoint');
+    if (endpoint) {
+      s3Options.endpoint = endpoint;
+    }
+
+    // 3. Si hay credenciales en el .env, las usamos.
+    // Si NO hay credenciales (estamos en AWS), NO mandamos este bloque 
+    // y el SDK usará el Rol de IAM de la EC2 mágicamente.
+    const accessKeyId = configService.get('s3.accessKeyId');
+    const secretAccessKey = configService.get('s3.secretAccessKey');
+    
+    if (accessKeyId && secretAccessKey) {
+      s3Options.credentials = {
+        accessKeyId,
+        secretAccessKey,
+      };
+    }
+
+    // 4. Instanciamos el cliente con las opciones dinámicas
+    const s3Client = new S3Client(s3Options);
 
     await s3Client.send(new ListBucketsCommand({}));
     logger.log('✅ S3/MinIO storage conectado correctamente');
