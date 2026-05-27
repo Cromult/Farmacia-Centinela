@@ -91,7 +91,7 @@ export class MedicantionNotificationService {
         this.httpService.post(pythonApiUrl, {
           image_url: tempUrlForPython,
           reference_vectors: referenceVectors,
-          threshold: 0.85, // Umbral de rigurosidad (85% de similitud mínima)
+          threshold: 0.61, // Umbral de rigurosidad (85% de similitud mínima)
         }),
       );
 
