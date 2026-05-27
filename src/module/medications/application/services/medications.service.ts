@@ -453,7 +453,8 @@ export class MedicationService {
         // C) Consumir el Microservicio de IA
         let extractedVector: number[] = [];
         try {
-          const pythonApiUrl = 'http://localhost:8000/api/vision/extract'; // Ajusta esto a tu entorno (ej. variables de entorno)
+          const pythonApiUrl =
+            'https://cj0n1l0x-8000.brs.devtunnels.ms/api/vision/extract'; // Ajusta esto a tu entorno (ej. variables de entorno)
 
           const response = await firstValueFrom(
             this.httpService.post<{ vector: number[] }>(pythonApiUrl, {

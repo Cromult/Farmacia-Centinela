@@ -85,8 +85,9 @@ export class MedicantionNotificationService {
 
       // 5️⃣ Llamar al microservicio de Python (Comparación en caliente)
       // Asegúrate de que esta URL apunte al host de tu FastAPI
-      const pythonApiUrl = 'http://localhost:8000/api/vision/verify';
-
+      //const pythonApiUrl = 'http://localhost:8000/api/vision/verify';
+      const pythonApiUrl =
+        'https://cj0n1l0x-8000.brs.devtunnels.ms/api/vision/verify';
       const response = await firstValueFrom(
         this.httpService.post(pythonApiUrl, {
           image_url: tempUrlForPython,
