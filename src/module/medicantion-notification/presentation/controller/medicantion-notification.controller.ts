@@ -49,25 +49,26 @@ export class MedicantionNotificationController {
   @ApiOperation({
     summary: 'Validar visualmente y crear notificación de medicamento',
   })
-  @ApiConsumes('multipart/form-data') // Clave para recibir imagen y datos
+  @ApiConsumes('multipart/form-data')
   @ApiBody({ type: CreateMedicantionNotificationDto })
   @ApiResponse({
     status: 201,
     description: 'Notificación creada y pastilla verificada',
   })
-  @UseInterceptors(FileInterceptor('file')) // Extrae el archivo llamado "file"
+  @UseInterceptors(FileInterceptor('file'))
   async create(
     @Body() dto: CreateMedicantionNotificationDto,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File, // Añade el "?" aquí también por si acaso
   ) {
-    if (!file) {
-      throw new BadRequestException(
-        'Debe subir una foto de la pastilla para verificarla.',
-      );
-    }
+    // 1. Obtenemos el resultado complejo del servicio
+    const result = await this.mediaService.createWithValidation(dto, file);
 
-    const entity = await this.mediaService.createWithValidation(dto, file);
-    return GetMedicantionNotificationDto.fromEntity(entity);
+    // 2. Mapeamos SOLO la entidad a través del DTO, y reconstruimos la respuesta
+    return {
+      notification: GetMedicantionNotificationDto.fromEntity(result.notification),
+      mensaje: result.mensaje,
+      verificacion_ia: result.verificacion_ia,
+    };
   }
   // -------------------------
   // FIND ALL
