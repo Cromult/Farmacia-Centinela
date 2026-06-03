@@ -5,6 +5,8 @@ import {
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
+  BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 
 import type { IPrescriptionRepository } from '../domain/prescriptions.repository.interface';
@@ -16,7 +18,9 @@ import { UpdatePrescriptionDto } from '../presentation/dtos/update-prescriptions
 
 import { PaginationResult } from 'src/utils/types/pagination-result.interface';
 import { MediaService } from 'src/module/media/applications/media.service';
-
+import { Readable } from 'stream';
+import { PollyClient, SynthesizeSpeechCommand } from '@aws-sdk/client-polly';
+import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class PrescriptionService {
   constructor(
@@ -26,6 +30,7 @@ export class PrescriptionService {
     @Inject(PATIENT_REPOSITORY) // ✅ correcto
     private readonly patientRepository: IPatientRepository,
     private readonly media: MediaService,
+    private configService: ConfigService,
   ) {}
 
   async findAll(): Promise<Prescription[]> {
@@ -47,6 +52,46 @@ export class PrescriptionService {
     }
 
     return prescription;
+  }
+  async getAudioInstructions(id: string): Promise<Readable> {
+    // 1. Buscamos la receta usando tu propio método
+    const prescription = await this.findById(id);
+
+    // 2. Extraemos el texto de las instrucciones
+    const textToRead = prescription.instrucciones_globales;
+    if (!textToRead) {
+      throw new BadRequestException(
+        'Esta receta no tiene instrucciones médicas registradas.',
+      );
+    }
+
+    // 3. (Opcional pero recomendado) Preparamos un saludo amigable para el abuelito
+    const textConSaludo = `Hola. Estas son las indicaciones de su receta médica: ${textToRead}. Por favor, no olvide tomar sus medicamentos a tiempo.`;
+
+    try {
+      // 4. Instanciamos el cliente de Polly (Usa tu IAM Role automáticamente)
+      const region = this.configService.get('AWS_REGION') || 'us-east-1';
+      const pollyClient = new PollyClient({ region });
+
+      // 5. Configuramos la orden para la IA de voz
+      const command = new SynthesizeSpeechCommand({
+        Engine: 'neural', // 'neural' genera voces mucho más humanas y naturales
+        LanguageCode: 'es-US', // Español Latino / Estados Unidos
+        VoiceId: 'Lupe', // 'Lupe' es una voz femenina muy clara (También hay 'Mia' o 'Pedro')
+        OutputFormat: 'mp3',
+        Text: textConSaludo,
+      });
+
+      // 6. Solicitamos el audio a los servidores de AWS
+      const response = await pollyClient.send(command);
+
+      // 7. Retornamos el flujo de audio puro (Stream)
+      return response.AudioStream as Readable;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Error al generar el audio de voz con Amazon Polly',
+      );
+    }
   }
   async findAllByUserId(userId: string): Promise<Prescription[]> {
     return this.repository.findAllByUserId(userId);
@@ -116,7 +161,8 @@ export class PrescriptionService {
       this.repository.getPatientByUserId(userId),
     ]);
 
-    const patientName = `${patient?.profile?.name ?? ''} ${patient?.profile?.lastname ?? ''}`.trim();
+    const patientName =
+      `${patient?.profile?.name ?? ''} ${patient?.profile?.lastname ?? ''}`.trim();
 
     if (!prescription) {
       return {
@@ -137,7 +183,7 @@ export class PrescriptionService {
 
     for (const med of meds) {
       const freqMs = med.frecuencia_horas * 60 * 60 * 1000;
-      
+
       let baseDate: Date;
       let isAlreadyTaken = false;
 
@@ -148,7 +194,7 @@ export class PrescriptionService {
         baseDate = new Date(lastNotif.tiempo_tomado || lastNotif.created_at);
         isAlreadyTaken = true;
       } else {
-        // 🔥 CORRECCIÓN APLICADA AQUÍ: 
+        // 🔥 CORRECCIÓN APLICADA AQUÍ:
         // Usamos el 'created_at' INDIVIDUAL del medicamento, no el de la receta.
         // Esto permite que las actualizaciones SQL funcionen y separen las horas.
         baseDate = new Date(med.created_at);
@@ -175,7 +221,10 @@ export class PrescriptionService {
         const firstDoc = med.medications_docs[0];
         if (firstDoc.media_id) {
           try {
-            imageUrl = await this.media.getPresignedUrl(firstDoc.media_id, 3600);
+            imageUrl = await this.media.getPresignedUrl(
+              firstDoc.media_id,
+              3600,
+            );
           } catch {
             imageUrl = null;
           }
@@ -196,7 +245,9 @@ export class PrescriptionService {
       if (!nearestDate || nextTake < nearestDate) {
         nearestDate = nextTake;
 
-        const diffMin = Math.floor((nextTake.getTime() - now.getTime()) / 60000);
+        const diffMin = Math.floor(
+          (nextTake.getTime() - now.getTime()) / 60000,
+        );
         let status = 'PENDIENTE';
         const minutosTolerancia = 5;
 
@@ -228,10 +279,13 @@ export class PrescriptionService {
   }
 
   async getPrescriptionHistory(prescriptionId: string): Promise<any> {
-    const prescription = await this.repository.getPrescriptionWithHistory(prescriptionId);
+    const prescription =
+      await this.repository.getPrescriptionWithHistory(prescriptionId);
 
     if (!prescription) {
-      throw new NotFoundException(`La receta con ID ${prescriptionId} no existe.`);
+      throw new NotFoundException(
+        `La receta con ID ${prescriptionId} no existe.`,
+      );
     }
 
     // Filtramos medicamentos activos
@@ -244,7 +298,7 @@ export class PrescriptionService {
       fecha_inicio: prescription.fecha_inicio_receta,
       fecha_fin: prescription.fecha_fin_receta,
       total_medications: meds.length,
-      
+
       // Lista de medicamentos con su historial de tomas
       medications: meds.map((med) => ({
         medication_id: med.id,
@@ -252,7 +306,7 @@ export class PrescriptionService {
         dosis: med.dosis,
         frecuencia_horas: med.frecuencia_horas,
         total_tomas_registradas: med.notifications?.length || 0,
-        
+
         // El historial exacto de este medicamento
         historial_tomas: (med.notifications || []).map((notif) => ({
           notification_id: notif.id,

@@ -14,6 +14,8 @@ import {
   UnauthorizedException,
   Req,
   UseGuards,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
 
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -30,7 +32,7 @@ import { PaginationQueryDto } from '../../../../common/dtos/pagination-query.dto
 import { Public } from 'src/module/auth/infrastructure/decorators/public.decorator';
 import { JwtAuthGuard } from 'src/module/auth/infrastructure/guards/jwt-auth.guard';
 
-import type { Express, Request as ExpressRequest } from 'express';
+import type { Express, Request as ExpressRequest, Response } from 'express';
 
 type RequestWithUser = ExpressRequest & { user?: { sub: string } };
 
@@ -79,8 +81,13 @@ export class PrescriptionController {
   }
 
   @Get(':id/history')
-  @ApiOperation({ summary: 'Obtener el historial completo de tomas de una receta' })
-  @ApiResponse({ status: 200, description: 'Historial de la receta obtenido con éxito.' })
+  @ApiOperation({
+    summary: 'Obtener el historial completo de tomas de una receta',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Historial de la receta obtenido con éxito.',
+  })
   @ApiResponse({ status: 404, description: 'Receta no encontrada.' })
   async getHistory(@Param('id') id: string) {
     return this.prescriptionService.getPrescriptionHistory(id);
@@ -111,6 +118,32 @@ export class PrescriptionController {
     const prescription = await this.prescriptionService.findById(id);
 
     return GetPrescriptionDto.fromEntity(prescription);
+  }
+
+  @Get(':id/audio')
+  @ApiOperation({
+    summary: 'Escuchar las instrucciones de la receta usando IA (Amazon Polly)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna el archivo de audio en formato MP3',
+  })
+  async getPrescriptionAudio(
+    @Param('id') id: string,
+    // El passthrough: true permite a NestJS devolver el stream pero dejándonos modificar los headers
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    // 1. Obtenemos el flujo de audio desde nuestro servicio
+    const audioStream = await this.prescriptionService.getAudioInstructions(id);
+
+    // 2. Le avisamos al celular del abuelito que lo que viene es un MP3 y no un JSON
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Content-Disposition': `inline; filename="receta-${id}.mp3"`, // 'inline' reproduce en el navegador, 'attachment' fuerza descarga
+    });
+
+    // 3. Enviamos el stream de forma eficiente
+    return new StreamableFile(audioStream);
   }
 
   @Post()
