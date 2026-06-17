@@ -18,12 +18,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json --runInBand",
-    "typeorm": "typeorm-ts-node-commonjs",
-    "migration:generate": "npm run typeorm -- -d src/data-source.ts migration:generate",
-    "migration:run": "npm run typeorm -- -d dist/data-source.js migration:run",
-    "migration:revert": "npm run typeorm -- -d dist/data-source.js migration:revert",
-    "migration:create": "npm run typeorm -- migration:create"
+    "test:e2e": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json --runInBand"
   },
   "dependencies": {
     "@aws-sdk/client-polly": "^3.1061.0",
@@ -116,7 +111,7 @@
       "^.+\\.(t|j)s$": [
         "ts-jest",
         {
-          "tsconfig": "tsconfig.jest.json"
+          "tsconfig": "tsconfig.json"
         }
       ]
     },

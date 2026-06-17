@@ -79,6 +79,8 @@ async function verifyPollyConnection(app: any) {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('app.port') ?? 3000;
 
   app.enableCors({
     origin: true, // En desarrollo permite cualquier origen
@@ -92,6 +94,6 @@ async function bootstrap() {
   setupSwagger(app); // <-- Inicializas Swagger
   await verifyS3Storage(app);
   await verifyPollyConnection(app);
-  await app.listen(3000, '0.0.0.0');
+  await app.listen(port, '0.0.0.0');
 }
 bootstrap();
