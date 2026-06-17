@@ -96,7 +96,6 @@ export class PrescriptionRepositoryImpl implements IPrescriptionRepository {
 
     return qb.clone().getOne();
   }
-
   async getPatientByUserId(userId: string): Promise<any> {
     return this.repository.manager
       .createQueryBuilder()

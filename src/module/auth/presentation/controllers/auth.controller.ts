@@ -7,8 +7,9 @@ import {
   Res,
   UseGuards,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
-import type { Response, Request } from 'express';
+import type { Express, Request as ExpressRequest, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 
 import { AuthService } from '../../application/auth.service';
@@ -24,6 +25,16 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ForgotPasswordDto, ResetPasswordDto } from '../dtos/forgot-password.dto';
+
+type RequestUser = Express.User & {
+  sub?: string;
+  email?: string;
+  roles?: string[];
+};
+
+type AuthenticatedRequest = ExpressRequest & {
+  user?: RequestUser;
+};
 
 @ApiTags('auth')
 @Controller('auth')
@@ -92,9 +103,30 @@ export class AuthController {
     status: 200,
     description: 'Devuelve los datos del usuario actual',
   })
-  me(@Req() req: Request & { user?: any }) {
-    const { sub, email, roles } = (req.user as any) ?? {};
+  me(@Req() req: AuthenticatedRequest) {
+    const { sub, email, roles } = req.user ?? {};
     return { user: { id: sub, email, roles } };
+  }
+
+  @Get('profile')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Ver perfil completo del usuario autenticado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Devuelve user, profile y patient del JWT autenticado',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'JWT ausente o inválido',
+  })
+  async profile(@Req() req: AuthenticatedRequest) {
+    const userId = req.user?.sub;
+
+    if (!userId) {
+      throw new UnauthorizedException('User must be authenticated');
+    }
+
+    return this.auth.getAuthenticatedProfile(userId);
   }
 
   // =========================
@@ -111,9 +143,14 @@ export class AuthController {
   })
   async refresh(
     @Res({ passthrough: true }) res: Response,
-    @Req() req: Request & { user?: any },
+    @Req() req: AuthenticatedRequest,
   ) {
-    const { sub } = req.user as any;
+    const { sub } = req.user ?? {};
+
+    if (!sub) {
+      throw new UnauthorizedException('User must be authenticated');
+    }
+
     const tokens = await this.auth.refresh(sub);
     const flags = this.cookieFlags();
     const ages = this.cookieAges();

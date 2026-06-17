@@ -43,7 +43,7 @@ export class CreateMedicantionNotificationDto {
     type: 'string',
     format: 'binary',
     description: 'Foto en caliente de la pastilla que el paciente está a punto de tomar',
-    required: true,
+    required: false,
   })
   file?: any; // Usado solo para documentar Swagger
 }

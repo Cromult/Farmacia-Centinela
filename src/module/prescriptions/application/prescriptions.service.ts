@@ -175,6 +175,12 @@ export class PrescriptionService {
     }
 
     const now = new Date();
+
+    // 🔥 1. DEFINIR EL LÍMITE: Mañana a las 10:00 AM (Hora local del servidor/Bolivia)
+    const limitDate = new Date(now);
+    limitDate.setDate(limitDate.getDate() + 1);
+    limitDate.setHours(10, 0, 0, 0);
+
     const meds = (prescription.medications || []).filter((m) => !m.deleted_at);
 
     let nextMedication: any = null;
@@ -194,28 +200,28 @@ export class PrescriptionService {
         baseDate = new Date(lastNotif.tiempo_tomado || lastNotif.created_at);
         isAlreadyTaken = true;
       } else {
-        // 🔥 CORRECCIÓN APLICADA AQUÍ:
-        // Usamos el 'created_at' INDIVIDUAL del medicamento, no el de la receta.
-        // Esto permite que las actualizaciones SQL funcionen y separen las horas.
         baseDate = new Date(med.created_at);
       }
 
       let nextTake = new Date(baseDate);
 
       // 2. CALCULAR LA PRÓXIMA TOMA
-      // Si ya se tomó antes, la próxima toma es la base + frecuencia
       if (isAlreadyTaken) {
         nextTake = new Date(nextTake.getTime() + freqMs);
       }
 
       // 3. AVANCE RÁPIDO (Fast-Forward) DE TOMAS PERDIDAS MÚLTIPLES
-      // Si la toma calculada ya pasó Y el tiempo hasta su SIGUIENTE dosis también pasó,
-      // avanzamos el reloj hasta encontrar la dosis actual pendiente.
       while (nextTake.getTime() + freqMs <= now.getTime()) {
         nextTake = new Date(nextTake.getTime() + freqMs);
       }
 
-      // 4. LÓGICA DE IMÁGENES (Sin cambios, está perfecta)
+      // 🔥 2. FILTRO INTELIGENTE DE TIEMPO
+      // Si la próxima toma es estrictamente DESPUÉS de las 10:00 AM de mañana, la ignoramos.
+      if (nextTake.getTime() > limitDate.getTime()) {
+        continue;
+      }
+
+      // 4. LÓGICA DE IMÁGENES
       let imageUrl: string | null = null;
       if (med.medications_docs?.length) {
         const firstDoc = med.medications_docs[0];
@@ -235,6 +241,7 @@ export class PrescriptionService {
       medications.push({
         id: med.id,
         nombre: med.nombre,
+        descripcion: med.descripcion, // 🔥 3. DESCRIPCIÓN AÑADIDA
         dosis: med.dosis,
         frecuencia_horas: med.frecuencia_horas,
         next_take_at: nextTake,
@@ -257,9 +264,11 @@ export class PrescriptionService {
         } else if (diffMin < -minutosTolerancia) {
           status = 'ATRASADO';
         }
+
         nextMedication = {
           id: med.id,
           nombre: med.nombre,
+          descripcion: med.descripcion, // 🔥 3. DESCRIPCIÓN AÑADIDA EN LA PRINCIPAL
           dosis: med.dosis,
           frecuencia_horas: med.frecuencia_horas,
           next_take_at: nextTake,
@@ -272,7 +281,9 @@ export class PrescriptionService {
     return {
       patient_name: patientName,
       prescription_id: prescription.id,
-      total_medications: meds.length,
+      // 🔥 Cambiamos meds.length por medications.length para que el total
+      // refleje exactamente las tarjetas que se mostrarán en pantalla.
+      total_medications: medications.length,
       next_medication: nextMedication,
       medications,
     };

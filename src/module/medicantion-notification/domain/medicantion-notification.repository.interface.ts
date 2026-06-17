@@ -26,4 +26,11 @@ export interface IMedicantionNotificationRepository {
   // -------------------------
   /** Obtener todas las notificaciones de un medication */
   findByMedicationId(medicationId: string): Promise<MedicantionNotification[]>;
+
+  // 🔥 NUEVO: Búsqueda múltiple con filtro de fechas para el Dashboard
+  findFilteredByMedications(
+    medicationIds: string[],
+    startDate: Date,
+    endDate: Date,
+  ): Promise<MedicantionNotification[]>;
 }

@@ -21,6 +21,8 @@ import { MedicationsModule } from 'src/module/medications/medications.module';
 import { MediaModule } from 'src/module/media/media.module';
 import {MedicantionNotificationService as MedicantionNotificationServiceMedia} from './application/services/medicantion-notification-media.service';
 
+import {PrescriptionsModule} from '../prescriptions/prescriptions.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -31,6 +33,7 @@ import {MedicantionNotificationService as MedicantionNotificationServiceMedia} f
     HttpModule, // Necesario para HttpService
     forwardRef(() => MedicationsModule),
     forwardRef(() => MediaModule),
+    forwardRef(() => PrescriptionsModule),
   ],
 
   controllers: [MedicantionNotificationController],

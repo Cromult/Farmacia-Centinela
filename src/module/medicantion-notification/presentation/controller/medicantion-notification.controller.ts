@@ -14,6 +14,9 @@ import {
   UseInterceptors,
   BadRequestException,
   Query,
+  UseGuards,
+  Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -30,10 +33,10 @@ import { MedicantionNotificationService as MedicantionNotificationServiceMedia }
 import { CreateMedicantionNotificationDto } from '../dtos/create-medicantion-notification.dto';
 import { UpdateMedicantionNotificationDto } from '../dtos/update-medicantion-notification.dto';
 import { GetMedicantionNotificationDto } from '../dtos/get-medicantion-notification.dto';
-
+import { JwtAuthGuard } from '../../../auth/infrastructure/guards/jwt-auth.guard';
 import { Public } from '../../../auth/infrastructure/decorators/public.decorator';
-
-@Public()
+import type { Express, Request as ExpressRequest, Response } from 'express';
+type RequestWithUser = ExpressRequest & { user?: { sub: string } };
 @ApiTags('medicantion-notifications')
 @Controller('medicantion-notifications')
 export class MedicantionNotificationController {
@@ -65,10 +68,32 @@ export class MedicantionNotificationController {
 
     // 2. Mapeamos SOLO la entidad a través del DTO, y reconstruimos la respuesta
     return {
-      notification: GetMedicantionNotificationDto.fromEntity(result.notification),
+      notification: GetMedicantionNotificationDto.fromEntity(
+        result.notification,
+      ),
       mensaje: result.mensaje,
       verificacion_ia: result.verificacion_ia,
     };
+  }
+
+  @UseGuards(JwtAuthGuard) // Es vital que esté protegido para sacar el userId
+  @Get('history/me')
+  @ApiOperation({
+    summary:
+      'Obtener historial de notificaciones (Hoy y Mañana) de la receta activa',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Historial mapeado con descripciones',
+  })
+  async getHistoryMe(@Req() req: ExpressRequest): Promise<any[]> {
+    // casteamos req según tu interfaz
+    const userId = (req as RequestWithUser).user?.sub;
+
+    if (!userId) {
+      throw new UnauthorizedException('User must be authenticated');
+    }
+    return this.service.getDashboardHistoryMe(userId);
   }
   // -------------------------
   // FIND ALL
@@ -83,7 +108,6 @@ export class MedicantionNotificationController {
     const data = await this.service.findAll();
     return data.map((e) => GetMedicantionNotificationDto.fromEntity(e));
   }
-
   // -------------------------
   // FIND BY MEDICATION
   // -------------------------

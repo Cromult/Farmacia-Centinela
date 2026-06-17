@@ -12,9 +12,17 @@ import { RolesGuard } from './infrastructure/guards/roles.guard';
 import { UsersModule } from '../users/users.module';
 import { UserRolesModule } from '../user-roles/user-roles.module';
 import { HashingModule } from '../hashing/hashing.module';
+import { ProfilesModule } from '../profiles/profiles.module';
 
 @Module({
-  imports: [ConfigModule, JwtInfraModule, UsersModule, UserRolesModule, HashingModule],
+  imports: [
+    ConfigModule,
+    JwtInfraModule,
+    UsersModule,
+    UserRolesModule,
+    HashingModule,
+    ProfilesModule,
+  ],
   controllers: [AuthController],
   providers: [
     AuthService, JwtAccessStrategy, JwtRefreshStrategy,

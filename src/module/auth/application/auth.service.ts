@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../../users/application/user.service';
 import { UserRoleService } from '../../user-roles/application/user-role.service';
+import { ProfilesService } from '../../profiles/application/profile.service';
 import * as passwordHasherInterface from '../../hashing/domain/password-hasher.interface';
 import { AccessPayload, RefreshPayload, TokenPair } from '../domain/auth.types';
 import { ResetPasswordDto } from '../presentation/dtos/forgot-password.dto';
@@ -14,6 +15,7 @@ export class AuthService {
   constructor(
     private readonly users: UserService,
     private readonly userRoles: UserRoleService,
+    private readonly profiles: ProfilesService,
     @Inject(passwordHasherInterface.PASSWORD_HASHER) private readonly hasher: passwordHasherInterface.PasswordHasher,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
@@ -60,6 +62,34 @@ export class AuthService {
     return {
       access: this.signAccess({ sub: user.id, email: user.email, roles }),
       refresh: this.signRefresh({ sub: user.id, type: 'refresh' })
+    };
+  }
+
+  async getAuthenticatedProfile(userId: string) {
+    const profile = await this.profiles.findOne(userId);
+    const { user, patient, ...profileData } = profile;
+    const roles = await this.userRoles.findRoleNamesByUserId(userId);
+
+    return {
+      user: {
+        id: user?.id ?? userId,
+        email: user?.email ?? null,
+        is_active: user?.is_active ?? null,
+        roles,
+        created_at: user?.created_at ?? null,
+        updated_at: user?.updated_at ?? null,
+        deleted_at: user?.deleted_at ?? null,
+      },
+      profile: profileData,
+      patient: patient
+        ? {
+            user_id: patient.user_id,
+            hospital: patient.hospital ?? null,
+            created_at: patient.created_at,
+            updated_at: patient.updated_at,
+            deleted_at: patient.deleted_at ?? null,
+          }
+        : null,
     };
   }
 

@@ -8,8 +8,7 @@ import { IMedicantionNotificationRepository } from '../../domain/medicantion-not
 import { MedicantionNotification } from '../../domain/medicantion-notification.entity';
 
 @Injectable()
-export class MedicantionNotificationRepositoryImpl implements IMedicantionNotificationRepository
-{
+export class MedicantionNotificationRepositoryImpl implements IMedicantionNotificationRepository {
   constructor(
     @InjectRepository(MedicantionNotification)
     private readonly repository: Repository<MedicantionNotification>,
@@ -63,5 +62,28 @@ export class MedicantionNotificationRepositoryImpl implements IMedicantionNotifi
       relations: ['medication'],
       order: { created_at: 'DESC' },
     });
+  }
+
+  async findFilteredByMedications(
+    medicationIds: string[],
+    startDate: Date,
+    endDate: Date,
+  ): Promise<MedicantionNotification[]> {
+    if (!medicationIds || medicationIds.length === 0) return [];
+
+    return (
+      this.repository
+        .createQueryBuilder('notification')
+        // Traemos los datos de la medicina para armar la respuesta después
+        .leftJoinAndSelect('notification.medication', 'medication')
+        .where('notification.medication_id IN (:...medicationIds)', {
+          medicationIds,
+        })
+        .andWhere('notification.created_at >= :startDate', { startDate })
+        .andWhere('notification.created_at <= :endDate', { endDate })
+        // Ordenamos para que lo más reciente salga primero
+        .orderBy('notification.created_at', 'DESC')
+        .getMany()
+    );
   }
 }
