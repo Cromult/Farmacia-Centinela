@@ -111,14 +111,6 @@ export class PrescriptionController {
 
     return prescriptions.map(GetPrescriptionDto.fromEntity);
   }
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a prescription by ID' })
-  @ApiResponse({ status: 200, type: GetPrescriptionDto })
-  async findOne(@Param('id') id: string): Promise<GetPrescriptionDto> {
-    const prescription = await this.prescriptionService.findById(id);
-
-    return GetPrescriptionDto.fromEntity(prescription);
-  }
 
   @Get(':id/audio')
   @ApiOperation({
@@ -145,6 +137,16 @@ export class PrescriptionController {
     // 3. Enviamos el stream de forma eficiente
     return new StreamableFile(audioStream);
   }
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a prescription by ID' })
+  @ApiResponse({ status: 200, type: GetPrescriptionDto })
+  async findOne(@Param('id') id: string): Promise<GetPrescriptionDto> {
+    const prescription = await this.prescriptionService.findById(id);
+
+    return GetPrescriptionDto.fromEntity(prescription);
+  }
+
+  
 
   @Post()
   @ApiOperation({ summary: 'Create a new prescription' })
